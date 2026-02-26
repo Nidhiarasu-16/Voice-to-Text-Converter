@@ -1,28 +1,26 @@
-# app.py
-
 import streamlit as st
 import tempfile
-import openai
+import soundfile as sf
+import wave
+import json
+from vosk import Model, KaldiRecognizer
 from transformers import pipeline
 
-# --- Page setup ---
 st.set_page_config(page_title="Lecture Voice-to-Notes", page_icon="🎓")
 st.title("Lecture Voice-to-Notes Generator 🔊 ➜ 📝")
-st.write(
-    "Upload your lecture audio (MP3/WAV) to generate transcript, summarized notes, and quizzes."
-)
+st.write("Upload your lecture audio (MP3/WAV) to generate transcript, study notes, and quizzes.")
 
-# --- OpenAI API key from Streamlit secrets ---
-openai.api_key = st.secrets.get("OPENAI_API_KEY")
-if not openai.api_key:
-    st.error(
-        "OpenAI API key not found! Please add it in Streamlit Cloud secrets as OPENAI_API_KEY."
-    )
+# --- Step 0: Load Vosk model ---
+st.info("Loading speech recognition model...")
+try:
+    vosk_model = Model("model")  # path to extracted Vosk model folder
+except Exception as e:
+    st.error(f"Could not load Vosk model. Make sure you have downloaded it. Error: {e}")
     st.stop()
 
-# --- Upload audio ---
-st.subheader("Upload Lecture Audio (MP3/WAV)")
-audio_file = st.file_uploader("Choose an audio file", type=["mp3", "wav"])
+# --- Step 1: Upload audio ---
+st.subheader("Upload Lecture Audio (WAV only recommended)")
+audio_file = st.file_uploader("Choose an audio file", type=["wav","mp3"])
 
 if audio_file:
     # Save uploaded file temporarily
@@ -30,18 +28,23 @@ if audio_file:
     tfile.write(audio_file.read())
     audio_path = tfile.name
 
-    # Play uploaded audio
     st.audio(audio_file, format="audio/wav")
 
-    # --- Step 1: Transcribe audio using OpenAI Whisper API ---
-    st.info("Transcribing audio... Please wait.")
+    # --- Step 2: Transcribe audio with Vosk ---
+    st.info("Transcribing audio with Vosk...")
     try:
-        with open(audio_path, "rb") as f:
-            response = openai.audio.transcriptions.create(
-                file=f,
-                model="whisper-1"
-            )
-        transcript = response["text"]
+        wf = wave.open(audio_path, "rb")
+        rec = KaldiRecognizer(vosk_model, wf.getframerate())
+        transcript = ""
+        while True:
+            data = wf.readframes(4000)
+            if len(data) == 0:
+                break
+            if rec.AcceptWaveform(data):
+                res = json.loads(rec.Result())
+                transcript += " " + res.get("text", "")
+        final_res = json.loads(rec.FinalResult())
+        transcript += " " + final_res.get("text", "")
     except Exception as e:
         st.error(f"Error during transcription: {e}")
         st.stop()
@@ -49,15 +52,12 @@ if audio_file:
     st.subheader("📄 Transcript")
     st.write(transcript)
 
-    # --- Step 2: Summarize transcript ---
+    # --- Step 3: Summarize transcript ---
     st.info("Generating summarized study notes...")
     try:
         summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
         summary = summarizer(
-            transcript,
-            max_length=200,
-            min_length=80,
-            do_sample=False
+            transcript, max_length=200, min_length=80, do_sample=False
         )[0]["summary_text"]
     except Exception as e:
         st.error(f"Error during summarization: {e}")
@@ -66,16 +66,13 @@ if audio_file:
     st.subheader("📝 Study Notes")
     st.write(summary)
 
-    # --- Step 3: Generate Quiz Questions ---
+    # --- Step 4: Generate quiz questions ---
     st.info("Generating quiz questions...")
     try:
         quiz_prompt = f"Create 5 multiple choice questions from this content:\n{transcript}"
         generator = pipeline("text-generation", model="gpt2")
         quiz = generator(
-            quiz_prompt,
-            max_length=250,
-            do_sample=True,
-            temperature=0.7
+            quiz_prompt, max_length=250, do_sample=True, temperature=0.7
         )[0]["generated_text"]
     except Exception as e:
         st.error(f"Error during quiz generation: {e}")
