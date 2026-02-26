@@ -1,5 +1,5 @@
 streamlit
-openai
+vosk
+soundfile
 transformers
 torch
-soundfile
