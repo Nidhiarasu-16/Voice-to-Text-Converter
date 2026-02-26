@@ -1,0 +1,9 @@
+streamlit
+streamlit-webrtc
+whisper
+transformers
+torch
+soundfile
+pydub
+av
+numpy
