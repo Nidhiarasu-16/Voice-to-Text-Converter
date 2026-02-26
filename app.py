@@ -5,7 +5,7 @@ from transformers import pipeline
 import numpy as np
 import tempfile
 import av
-from pydub import AudioSegment
+import soundfile as sf
 
 st.set_page_config(page_title="Lecture Voice-to-Notes", page_icon="🎓")
 st.title("Lecture Voice-to-Notes Generator 🎓")
@@ -47,12 +47,7 @@ if st.button("Save Recording"):
         audio_data = np.hstack(webrtc_ctx.audio_processor.audio_frames)
         # Save as WAV
         temp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-        AudioSegment(
-            audio_data.tobytes(),
-            frame_rate=48000,
-            sample_width=audio_data.dtype.itemsize,
-            channels=1
-        ).export(temp_wav.name, format="wav")
+        sf.write(temp_wav.name, audio_data, samplerate=48000)
         audio_file_path = temp_wav.name
         st.success(f"Recording saved: {audio_file_path}")
         st.text_input("Audio file path will appear here after recording", value=audio_file_path)
@@ -82,4 +77,5 @@ if audio_file_path:
     quiz = generator(quiz_prompt, max_length=300, do_sample=True, temperature=0.7)[0]['generated_text']
 
     st.subheader("❓ Quiz / Flashcards")
+
     st.write(quiz)
