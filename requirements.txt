@@ -1,5 +1,6 @@
 streamlit
 vosk
+wget
 soundfile
 transformers
 torch
