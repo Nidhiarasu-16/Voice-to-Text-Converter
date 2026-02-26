@@ -1,5 +1,5 @@
 streamlit
-SpeechRecognition
+requests
 transformers
 torch
 soundfile
