@@ -1,9 +1,5 @@
 streamlit
-streamlit-webrtc
-whisper
+openai
 transformers
 torch
 soundfile
-pydub
-av
-numpy
