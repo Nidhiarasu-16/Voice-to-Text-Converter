@@ -1,25 +1,41 @@
 import streamlit as st
 import tempfile
-import soundfile as sf
+import os
 import wave
 import json
+import zipfile
 from vosk import Model, KaldiRecognizer
 from transformers import pipeline
 
 st.set_page_config(page_title="Lecture Voice-to-Notes", page_icon="🎓")
 st.title("Lecture Voice-to-Notes Generator 🔊 ➜ 📝")
-st.write("Upload your lecture audio (MP3/WAV) to generate transcript, study notes, and quizzes.")
+st.write(
+    "Upload your lecture audio (MP3/WAV) to generate transcript, summarized notes, and quizzes."
+)
 
-# --- Step 0: Load Vosk model ---
+# --- Step 0: Download Vosk model if not present ---
+MODEL_PATH = "model"
+
+if not os.path.exists(MODEL_PATH):
+    st.info("Downloading Vosk speech recognition model (~50MB)... This may take a minute.")
+    import wget
+
+    url = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+    wget.download(url, "vosk-model.zip")
+    with zipfile.ZipFile("vosk-model.zip", "r") as zip_ref:
+        zip_ref.extractall(MODEL_PATH)
+    st.success("Model downloaded!")
+
+# Load the Vosk model
 st.info("Loading speech recognition model...")
 try:
-    vosk_model = Model("model")  # path to extracted Vosk model folder
+    vosk_model = Model(MODEL_PATH)
 except Exception as e:
-    st.error(f"Could not load Vosk model. Make sure you have downloaded it. Error: {e}")
+    st.error(f"Could not load Vosk model. Error: {e}")
     st.stop()
 
 # --- Step 1: Upload audio ---
-st.subheader("Upload Lecture Audio (WAV only recommended)")
+st.subheader("Upload Lecture Audio (WAV recommended)")
 audio_file = st.file_uploader("Choose an audio file", type=["wav","mp3"])
 
 if audio_file:
