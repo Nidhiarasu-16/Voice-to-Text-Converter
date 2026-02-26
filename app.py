@@ -49,13 +49,16 @@ if audio_file:
         st.error(f"Audio upload failed: {e}")
         st.stop()
 
-    # --- Step 2: Request transcription ---
+    # --- Step 2: Request transcription with speech model ---
     st.info("Requesting transcription...")
     try:
         transcript_request = requests.post(
             "https://api.assemblyai.com/v2/transcript",
             headers=headers,
-            json={"audio_url": audio_url}
+            json={
+                "audio_url": audio_url,
+                "speech_models": ["universal-2"]  # required free model
+            }
         )
         transcript_json = transcript_request.json()
         if "id" not in transcript_json:
