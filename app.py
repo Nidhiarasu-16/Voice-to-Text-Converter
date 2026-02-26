@@ -1,5 +1,3 @@
-# app.py
-
 import streamlit as st
 import tempfile
 import requests
@@ -13,9 +11,7 @@ st.write("Upload your lecture audio (MP3/WAV) to generate transcript, summarized
 # --- Get AssemblyAI API key ---
 API_KEY = st.secrets.get("ASSEMBLYAI_API_KEY")
 if not API_KEY:
-    st.error(
-        "AssemblyAI API key not found! Add it in Streamlit secrets as ASSEMBLYAI_API_KEY."
-    )
+    st.error("AssemblyAI API key not found! Add it in Streamlit secrets as ASSEMBLYAI_API_KEY.")
     st.stop()
 
 headers = {"authorization": API_KEY}
@@ -49,7 +45,7 @@ if audio_file:
         st.error(f"Audio upload failed: {e}")
         st.stop()
 
-    # --- Step 2: Request transcription with speech model ---
+    # --- Step 2: Request transcription with required speech model ---
     st.info("Requesting transcription...")
     try:
         transcript_request = requests.post(
@@ -57,7 +53,7 @@ if audio_file:
             headers=headers,
             json={
                 "audio_url": audio_url,
-                "speech_models": ["universal-2"]  # required free model
+                "speech_models": ["universal-2"]  # free model
             }
         )
         transcript_json = transcript_request.json()
@@ -71,23 +67,39 @@ if audio_file:
 
     # --- Step 3: Poll until transcription is complete ---
     st.info("Transcribing audio... this may take a few moments.")
-    while True:
-        try:
-            status_response = requests.get(
-                f"https://api.assemblyai.com/v2/transcript/{transcript_id}",
-                headers=headers
-            ).json()
-        except Exception as e:
-            st.error(f"Error checking transcription status: {e}")
-            st.stop()
+    progress_text = st.empty()
+    progress_bar = st.progress(0)
 
-        if status_response.get("status") == "completed":
-            transcript = status_response.get("text", "")
-            break
-        elif status_response.get("status") == "failed":
-            st.error(f"Transcription failed: {status_response}")
+    max_wait = 60  # max wait 60 seconds
+    interval = 2   # poll every 2 seconds
+    elapsed = 0
+
+    with st.spinner("Transcription in progress..."):
+        while elapsed < max_wait:
+            try:
+                status_response = requests.get(
+                    f"https://api.assemblyai.com/v2/transcript/{transcript_id}",
+                    headers=headers
+                ).json()
+            except Exception as e:
+                st.error(f"Error checking transcription status: {e}")
+                st.stop()
+
+            status = status_response.get("status")
+            if status == "completed":
+                transcript = status_response.get("text", "")
+                break
+            elif status == "failed":
+                st.error(f"Transcription failed: {status_response}")
+                st.stop()
+
+            progress_text.text(f"Transcription status: {status}")
+            progress_bar.progress(min(elapsed / max_wait, 1.0))
+            time.sleep(interval)
+            elapsed += interval
+        else:
+            st.error("Transcription is taking too long. Please try again later.")
             st.stop()
-        time.sleep(3)
 
     st.subheader("📄 Transcript")
     st.write(transcript)
