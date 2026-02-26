@@ -1,6 +1,5 @@
 streamlit
-vosk
-wget
-soundfile
+SpeechRecognition
 transformers
 torch
+soundfile
